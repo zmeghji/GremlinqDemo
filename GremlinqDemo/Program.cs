@@ -56,8 +56,69 @@ namespace GremlinqDemo
 
         private static async Task CreateData(IGremlinQuerySource g)
         {
-            throw new NotImplementedException();
+            //Create users
+            var alice = await CreateUser(g, "Alice");
+            var bob = await CreateUser(g, "Bob");
+            var charlie = await CreateUser(g, "Charlie");
+            var diana = await CreateUser(g, "Diana");
+
+            //Create "Follows" edges
+            await Follows(g, alice, bob);
+            await Follows(g, bob, charlie);
+            await Follows(g, bob, diana);
+            await Follows(g, charlie, bob);
+
+            //Create tweet
+            var tweet1 = await CreateTweet(g, bob, "I love using gremlinq!");
+
+            //Create "Liked" edges
+            await Liked(g, alice, tweet1);
+            await Liked(g, charlie, tweet1);
+
+            await Retweeted(g, alice, tweet1);
         }
+
+        static async Task<User> CreateUser(IGremlinQuerySource g, string name) =>
+            await g
+                //AddV means add vertex (in this case the vertex is a user
+                .AddV(new User { Name = name })
+                //FirstAsync will return the created user
+                .FirstAsync();
+
+        static async Task Follows(IGremlinQuerySource g, User follower, User followee) =>
+            await g
+                //Get the first user vertex
+                .V(follower.Id)
+                //Add an edge from the first user of type "Follows" to the second user
+                .AddE<Follows>()
+                .To(__ => __.V(followee.Id))
+                //awaiting FirstAsync will ensure the "Follows" edge gets created
+                .FirstAsync();
+
+        static async Task Liked(IGremlinQuerySource g, User liker, Tweet tweet) =>
+            await g
+                .V(liker.Id)
+                //Add an edge from the user of type "Liked" to the tweet
+                .AddE<Liked>()
+                .To(__ => __.V(tweet.Id))
+                .FirstAsync();
+
+        static async Task Retweeted(IGremlinQuerySource g, User retweeter, Tweet tweet) =>
+            await g.V(retweeter.Id)
+                .AddE<Retweeted>()
+                .To(__ => __.V(tweet.Id))
+                .FirstAsync();
+        static async Task<Tweet> CreateTweet(IGremlinQuerySource g, User tweeter, string content) =>
+            await g
+                //Get the tweeter(user) vertex
+                .V(tweeter.Id)
+                // add a "Tweeted" edge from the user to a new tweet vertex created in the same query
+                .AddE<Tweeted>()
+                .To(__ => __.AddV(new Tweet { Content = content }))
+                //Traverse from the "Tweeted" edge to the actual tweet
+                //InV means go from the edge to the vertex it is going into
+                .InV<Tweet>()
+                .FirstAsync();
 
         private static async Task RunQueries(IGremlinQuerySource g)
         {
