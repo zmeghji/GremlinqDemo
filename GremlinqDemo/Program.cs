@@ -32,14 +32,26 @@ namespace GremlinqDemo
         private static async Task CreateDb()
         {
             var client = new Cosmos.CosmosClient(CosmosConnectionString);
+            //Create Database
             var createResponse = await client.CreateDatabaseIfNotExistsAsync(DatabaseName);
             var db = createResponse.Database;
+            //Create Container
             await db.CreateContainerIfNotExistsAsync(GraphName, PartitionKeyPath);
         }
 
         private static IGremlinQuerySource GetGremlinSource()
         {
-            throw new NotImplementedException();
+            return GremlinQuerySource.g
+                .ConfigureEnvironment(env => env
+                    .UseModel(GraphModel
+                        //Specify base classes for vertices(Vertex) and edges(Edge)
+                        .FromBaseTypes<Vertex, Edge>(lookup => lookup.IncludeAssembliesOfBaseTypes()))
+                    .UseCosmosDb(builder => builder
+                        //Specify CosmosDb Gremlin endpoint URL, DB name and graph name. 
+                        .At(new Uri(GremlinEndpointUrl), DatabaseName, GraphName)
+                        //Specify CosmosDb access key
+                        .AuthenticateBy(CosmosDbAuthKey)
+                        ));
         }
 
         private static async Task CreateData(IGremlinQuerySource g)
