@@ -122,9 +122,93 @@ namespace GremlinqDemo
 
         private static async Task RunQueries(IGremlinQuerySource g)
         {
-            throw new NotImplementedException();
+            var bob = await g
+                .V()
+                .OfType<User>()
+                .Where(u => u.Name == "Bob")
+                .FirstAsync();
+
+            //We only created one tweet so we know tweet1 will be the first
+            var tweet1 = await g
+                .V()
+                .OfType<Tweet>()
+                .FirstAsync();
+
+            await WhoFollowsBob(g,bob);
+            await WhoLikedTweet1(g, tweet1);
+            await WhoLikedAndRetweetedTweet1(g, tweet1);
+            await WhoFollowsBobBack(g, bob);
+        }
+        private static async Task WhoFollowsBob(IGremlinQuerySource g, User bob)
+        {
+            var bobsFollowers = await g
+                //Get all users with a Follows edge going "In" (pointing) to Bob
+                .V(bob.Id)
+                .In<Follows>()
+                .OfType<User>()
+                .ToArrayAsync();
+
+            Console.WriteLine();
+            Console.WriteLine("Users who follow Bob:");
+            foreach (var user in bobsFollowers)
+                Console.WriteLine(user.Name);
         }
 
+        private static async Task WhoLikedTweet1(IGremlinQuerySource g, Tweet tweet1)
+        {
+            var tweetLikers = await g
+                .V(tweet1.Id)
+                .In<Liked>()
+                .OfType<User>().ToArrayAsync();
+
+            Console.WriteLine();
+            Console.WriteLine("Users who liked Tweet1:");
+            foreach (var user in tweetLikers)
+                Console.WriteLine(user.Name);
+        }
+
+        private static async Task WhoLikedAndRetweetedTweet1(IGremlinQuerySource g, Tweet tweet1)
+        {
+            var likedAndRetweeted = await g
+                //retrieve the list of users who liked the tweet
+                .V(tweet1.Id)
+                .In<Liked>()
+                .OfType<User>()
+                .Fold()
+                //From the users who liked the tweet, get only the ones who also retweeted it.
+                .As((__, likers) => __
+                    .V(tweet1.Id)
+                    .In<Retweeted>()
+                    .OfType<User>()
+                    .Where(retweeter => likers.Value.Contains(retweeter)))
+                .ToArrayAsync();
+
+            Console.WriteLine();
+            Console.WriteLine("Users who liked and retweeted Tweet1:");
+            foreach (var user in likedAndRetweeted)
+                Console.WriteLine(user.Name);
+        }
+
+        private static async Task WhoFollowsBobBack(IGremlinQuerySource g, User bob)
+        {
+            var followsBobBack = await g
+                //Find the users who are followed by Bob
+                .V(bob.Id)
+                .Out<Follows>()
+                .OfType<User>()
+                .Fold()
+                //Filter to the users who follow Bob back
+                .As((__, bobFollows) => __
+                    .V(bob.Id)
+                    .In<Follows>()
+                    .OfType<User>()
+                    .Where(bobsFollower => bobFollows.Value.Contains(bobsFollower)));
+
+            Console.WriteLine();
+            Console.WriteLine("Users who follow Bob and are followed by him :");
+            foreach (var user in followsBobBack)
+                Console.WriteLine(user.Name);
+        }
         private static Task DeleteData(IGremlinQuerySource g)
         {
             throw new NotImplementedException();
