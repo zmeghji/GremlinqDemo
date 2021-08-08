@@ -33,7 +33,7 @@ namespace GremlinqDemo
         {
             var client = new Cosmos.CosmosClient(CosmosConnectionString);
             //Create Database
-            var createResponse = await client.CreateDatabaseIfNotExistsAsync(DatabaseName);
+            var createResponse = await client.CreateDatabaseIfNotExistsAsync(DatabaseName, 4000);
             var db = createResponse.Database;
             //Create Container
             await db.CreateContainerIfNotExistsAsync(GraphName, PartitionKeyPath);
@@ -209,9 +209,12 @@ namespace GremlinqDemo
             foreach (var user in followsBobBack)
                 Console.WriteLine(user.Name);
         }
-        private static Task DeleteData(IGremlinQuerySource g)
+        private static async Task DeleteData(IGremlinQuerySource g)
         {
-            throw new NotImplementedException();
+            //Get all edges in the database and delete them 
+            await g.E().Drop();
+            //Get all nodes in the database and delete them 
+            await g.V().Drop();
         }
 
     }
